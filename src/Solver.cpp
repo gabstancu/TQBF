@@ -6,7 +6,9 @@ Solver::Solver (SolverData& data): data(data), state(qbf::UNDEFINED), level(qbf:
     SStack = {};
     Search_Stack = {};
     implied_variables = {};
-    std::cout << "Initialized stacks...\n";
+    unit_clauses = {};
+    conflict_clause = qbf::UNDEFINED;
+    // std::cout << "Initialized stacks...\n";
 }
 
 
@@ -26,7 +28,7 @@ void Solver::assign(int varID, int value, int searchLevel)
     // data.numVars--;
     // data.Variables_trail.at(searchLevel).emplace(varID); /* add to variables trail | is being added in remove_clause */
     
-    if (value) /* assign positive */
+    if (value == 1) /* assign positive */
     {
         /* 
             clauses where varID appears positive are satisfied 
@@ -36,17 +38,19 @@ void Solver::assign(int varID, int value, int searchLevel)
         {   
             for (const auto& [clauseID, positionInClause] : data.Variables.at(varID).get_positiveOccurrences())
             {   
+                // printf("clauseID %d position in clause %d pos\n", clauseID, positionInClause);
+                // printVector(data.Clauses.at(clauseID).get_literals());
                 if (data.Clauses.at(clauseID).is_available() == qbf::UNAVAILABLE) continue;
 
                 data.Clauses.at(clauseID).increase_assigned();
                 data.Clauses.at(clauseID).decrease_unassigned();
                 remove_clause(clauseID, searchLevel);
-                // if (state == qbf::SAT)
-                // {   
-                //     /* ??? analyze_SAT ??? */
-                //     /* ??? restore ??? */
-                //     return;
-                // }
+                if (state == qbf::SAT)
+                {   
+                    /* ??? analyze_SAT ??? */
+                    /* ??? restore ??? */
+                    return;
+                }
             }
         }
         /*
@@ -55,16 +59,17 @@ void Solver::assign(int varID, int value, int searchLevel)
         if (data.Variables.at(varID).get_numNegAppear())
         {
             for (const auto& [clauseID, positionInClause] : data.Variables.at(varID).get_negativeOccurrences())
-            {
+            {   
+                // printf("clauseID %d position in clause %d neg\n", clauseID, positionInClause);
                 if (data.Clauses.at(clauseID).is_available() == qbf::UNAVAILABLE) continue;
 
-                remove_literal_from_clause(-varID, clauseID, positionInClause, searchLevel);
-                // if (state == qbf::UNSAT)
-                // {   
-                //     /* ??? analyze_conflict ??? */
-                //     /* ??? restore ??? */
-                //     return;
-                // }
+                remove_literal_from_clause(varID, clauseID, positionInClause, searchLevel);
+                if (state == qbf::UNSAT)
+                {   
+                    /* ??? analyze_conflict ??? */
+                    /* ??? restore ??? */
+                    return;
+                }
             }
         } 
     }
@@ -77,15 +82,16 @@ void Solver::assign(int varID, int value, int searchLevel)
         {
             for (const auto& [clauseID, positionInClause] : data.Variables.at(varID).get_positiveOccurrences())
             {   
+                // printf("clauseID %d position in clause %d pos\n", clauseID, positionInClause);
                 if (data.Clauses.at(clauseID).is_available() == qbf::UNAVAILABLE) continue;
 
                 remove_literal_from_clause(varID, clauseID, positionInClause, searchLevel);
-                // if (state == qbf::UNSAT)
-                // {   
-                //     /* ??? analyze_conflict ??? */
-                //     /* ??? restore ??? */
-                //     return;
-                // }
+                if (state == qbf::UNSAT)
+                {   
+                    /* ??? analyze_conflict ??? */
+                    /* ??? restore ??? */
+                    return;
+                }
             }
         }
         
@@ -94,17 +100,18 @@ void Solver::assign(int varID, int value, int searchLevel)
         {
             for (const auto& [clauseID, positionInClause] : data.Variables.at(varID).get_negativeOccurrences())
             {
+                // printf("clauseID %d position in clause %d neg\n", clauseID, positionInClause);
                 if (data.Clauses.at(clauseID).is_available() == qbf::UNAVAILABLE) continue;
 
                 data.Clauses.at(clauseID).increase_assigned();
                 data.Clauses.at(clauseID).decrease_unassigned();
                 remove_clause(clauseID, searchLevel);
-                // if (state == qbf::SAT)
-                // {   
-                //     /* ??? analyze_SAT ??? */
-                //     /* ??? restore ??? */
-                //     return;
-                // }
+                if (state == qbf::SAT)
+                {   
+                    /* ??? analyze_SAT ??? */
+                    /* ??? restore ??? */
+                    return;
+                }
             }
         }
     }
@@ -113,8 +120,36 @@ void Solver::assign(int varID, int value, int searchLevel)
 }
 
 
-void Solver::remove_literal_from_clause(int literal, int clauseID, int positionInClause, int searchLevel)
+void Solver::propagate_in_tseitin(int varID, int value, int searchLevel)
+{
+    std::cout << "propagating " << varID << " = " << value << " at " << searchLevel << " in tseitin clauses\n";
+
+    for (;;)
+    {
+
+    }
+}
+
+
+bool Solver::any_tseitin_true()
+{   
+    for (const auto& [varID, variable] : data.Tseitin_variables)
+    {
+        if (variable.get_assignment() == 1)
+        {
+            std::cout << "found winning strategy\nsaving winning moves\n";
+            std::cout << "winning strategy (corresponding tseitin variable): " << varID << '\n';
+            return true;
+        }
+    }
+    return false;
+}
+
+
+void Solver::remove_literal_from_clause(int varID, int clauseID, int positionInClause, int searchLevel)
 {      
+
+    int literal = data.Clauses.at(clauseID).get_literals()[positionInClause];
     /* check if the literal has been previously removed from the clause  */
     if (data.Clauses.at(clauseID).get_state()[positionInClause] != qbf::AVAILABLE)
     {   
@@ -122,41 +157,70 @@ void Solver::remove_literal_from_clause(int literal, int clauseID, int positionI
         return;
     }
 
-    // std::cout << "removing literal " << literal << " from clause " << clauseID << " at level " << searchLevel << '\n';
+    // std::cout << "removing literal " << literal << " from clause " << clauseID << " at level " << searchLevel << " position: " << positionInClause <<'\n';
+    // data.Clauses.at(clauseID).print();
 
     data.Clauses_trail[searchLevel].insert(clauseID);
     // data.Clauses.at(clauseID).decrease_size();
     data.Clauses.at(clauseID).get_state()[positionInClause] = searchLevel;
 
 
-    if (data.Variables.at(std::abs(literal)).is_existential())
+    if (literal > 0) 
+        data.Variables.at(varID).decrease_posNum();
+    else 
+        data.Variables.at(varID).decrease_negNum();
+
+
+    if (data.Variables.at(varID).is_existential())
         data.Clauses.at(clauseID).decrease_e_num();
     else
         data.Clauses.at(clauseID).decrease_a_num();
     
     
-    if (data.Clauses.at(clauseID).get_a_num() != 0 && data.Clauses.at(clauseID).get_e_num() == 0)
-    {   
-        std::cout << "all universal clause " << clauseID << " " << "at level " << searchLevel << '\n';
-        state = qbf::UNSAT;
-        return;
-    }
+    // if (data.Clauses.at(clauseID).get_a_num() != 0 && data.Clauses.at(clauseID).get_e_num() == 0)
+    // {   
+    //     std::cout << "all universal clause " << clauseID << " " << "at level " << searchLevel << '\n';
+    //     conflicting_clause = clauseID;
+    //     state = qbf::UNSAT;
+    //     return;
+    // }
 
     if (data.Clauses.at(clauseID).get_a_num() == 0 && data.Clauses.at(clauseID).get_e_num() == 0)
     {
         std::cout << "empty clause " << clauseID << " " << "at level " << searchLevel << '\n';
+        conflict_clause = clauseID;
         state = qbf::UNSAT;
         return;
     }
-
-    if (literal > 0) 
-        data.Variables.at(literal).decrease_posNum();
-    else 
-        data.Variables.at(std::abs(literal)).decrease_negNum();
     
     /* add flag for resolution ... */
     data.Clauses.at(clauseID).decrease_unassigned();
     data.Clauses.at(clauseID).increase_assigned();
+
+    /* if e_num == 1 find position of the only existential in the clause */
+    if (data.Clauses.at(clauseID).get_e_num() == 1)
+    {
+        for (size_t i = 0; i < data.Clauses.at(clauseID).get_size(); i++)
+        {
+            if (data.Clauses.at(clauseID).get_state()[i] != qbf::AVAILABLE)
+                continue;
+            
+            int var = std::abs(data.Clauses.at(clauseID).get_literals()[i]);
+
+            if (data.Variables.at(var).is_existential())
+            {   
+                int candidate_unit_literal_position = i;
+
+                if (clause_is_unit(clauseID, var) == 1)
+                {
+                    unit_clauses.push({clauseID, searchLevel});
+                    data.Clauses.at(clauseID).set_unit_position(candidate_unit_literal_position);
+                }
+            }
+            break;
+        }
+    }
+
     
     /* ??? Maybe call call check_affected_vars to check all? ??? */
     // if (data.Variables.at(std::abs(literal)).get_numNegAppear() == 0 && data.Variables.at(std::abs(literal)).get_numPosAppear() == 0)
@@ -209,6 +273,7 @@ void Solver::remove_clause(int clauseID, int searchLevel)
 void Solver::remove_variable(int varID, int searchLevel)
 {
     /* set as unavailable to Block and do the rest */
+    std::cout << "removing var " << varID << " at level " << searchLevel << '\n';
     int blockID = data.Variables.at(varID).get_blockID();
     int positionInBlock = data.Variables.at(varID).get_block_position();
 
@@ -217,16 +282,17 @@ void Solver::remove_variable(int varID, int searchLevel)
     data.Blocks.at(blockID).decrease_available_vars();
     data.Blocks.at(blockID).get_state()[positionInBlock] = qbf::UNAVAILABLE;
     data.Blocks.at(blockID).get_decision_level()[positionInBlock] = searchLevel;
+    data.prefix.at(blockID).erase(varID);
 
     if (data.Blocks.at(blockID).get_available_variables() == 0)
     {
-        data.prefix.at(blockID).erase(varID);
         data.Blocks.at(blockID).set_availability(qbf::UNAVAILABLE);
         data.numBlocks--;
         
         std::cout << "no variables left in block; removing block " << blockID << " from prefix\n";
+        data.prefix.erase(blockID);
+        print_Prefix();
     }
-
 
     data.Variables.at(varID).set_level(searchLevel);
     data.Variables.at(varID).set_availability(qbf::UNAVAILABLE);
@@ -272,6 +338,11 @@ void Solver::restore_level(int searchLevel)
         // std::cout << data.Clauses.at(clauseID).is_available() << "\n\n";
 
         data.Clauses.at(clauseID).set_level(qbf::UNDEFINED);
+        /* check if clause was candidate unit clause */
+        if (data.Clauses.at(clauseID).is_unit())
+        {
+            data.Clauses.at(clauseID).set_unit_position(qbf::UNDEFINED);
+        }
         
         if (data.Clauses.at(clauseID).is_available() == qbf::UNAVAILABLE)
             data.numClauses++;
@@ -303,6 +374,8 @@ void Solver::restore_level(int searchLevel)
             
 
             data.Clauses.at(clauseID).increase_unassigned();
+            data.Clauses.at(clauseID).decrease_assigned();
+
         }
     }
 
@@ -333,6 +406,77 @@ void Solver::check_affected_vars(int searchLevel)
     data.Variables_trail.erase(searchLevel);
 }
 
+
+void Solver::imply(int searchLevel)
+{
+    while (!unit_clauses.empty())
+    // while (unit_clauses.top().second == searchLevel)
+    {
+        // std::cout << "num of unit clauses: " << unit_clauses.size() << '\n';
+        int unit_clauseID = unit_clauses.top().first;
+        int unit_literal_position = data.Clauses.at(unit_clauseID).get_unit_position();
+        int unit_literal = data.Clauses.at(unit_clauseID).get_literals()[unit_literal_position];
+
+        if (unit_literal > 0)
+        {
+            assign(unit_literal, 1, searchLevel);
+            implied_variables.push({unit_literal, searchLevel});
+        }
+        else
+        {
+            assign(std::abs(unit_literal), 0, searchLevel);
+            implied_variables.push({std::abs(unit_literal), searchLevel});
+        }
+
+        /* set antecedent */
+        data.Variables.at(std::abs(unit_literal)).set_antecedent_clause(unit_clauseID);
+        
+        unit_clauses.pop();
+    }
+
+    std::cout << "DONE implying...\n";
+}
+
+
+int Solver::clause_is_unit(int clauseID, int reference_varID)
+{   
+    int reference_level = data.Variables.at(reference_varID).get_blockID();
+    int unit_flag = 1;
+    int sign_flag = -1;
+    size_t i;
+
+    for (i = 0; i < data.Clauses.at(clauseID).get_size(); i++)
+    {   
+        /* we only check free (unassigned) literals */
+        if (data.Clauses.at(clauseID).get_state()[i] != qbf::AVAILABLE) 
+            continue;
+
+        int literal = data.Clauses.at(clauseID).get_literals()[i];
+        int var = std::abs(literal);
+
+        if (literal > 0) 
+            sign_flag = 1;
+        else
+            sign_flag = 0;
+
+
+        if (var == reference_varID) continue;
+
+        int universal_level = data.Variables.at(var).get_blockID();
+
+        if (universal_level < reference_level)
+        {
+            unit_flag = 0;
+            break;
+        }
+    }
+
+    if (!unit_flag) return 0;
+
+    // std::cout << clauseID << " is unit\n";
+
+    return unit_flag;
+}
 
 
 void Solver::analyze_conflict()
@@ -372,22 +516,20 @@ void Solver::analyze_conflict()
 }
 
 
-
 void Solver::print_Clauses()
 {
     for (const auto& [clauseID, clause] : data.Clauses)
     {
-        if (clause.is_available() == qbf::UNAVAILABLE)
-            continue;
-        
-        std::cout << "clauseID: " << clauseID << " | size: " << clause.get_size() << " | e_num: " << clause.get_e_num() << " a_num: " << clause.get_a_num() << " | ";
-        for (size_t i = 0; i < clause.get_size(); i++)
-        {   
-            if (clause.get_state()[i] != qbf::AVAILABLE)
-                continue;
-            std::cout << clause.get_literals()[i] << " ";
+        if (clause.is_available() == qbf::AVAILABLE && clause.is_tseitin() == false)
+        {
+            std::cout << "clauseID: " << clauseID << " | size: " << clause.get_size() << " | e_num: " << clause.get_e_num() << " a_num: " << clause.get_a_num() << " | ";
+            for (size_t i = 0; i < clause.get_size(); i++)
+            {   
+                if (clause.get_state()[i] == qbf::AVAILABLE)
+                    std::cout << clause.get_literals()[i] << " ";
+            }
+            std::cout << "unassigned " << clause.get_unassigned() << '\n';
         }
-        std::cout << "unassigned " << clause.get_unassigned() << '\n';
         // std::cout << '\n';
     }
 }
@@ -438,35 +580,71 @@ void Solver::print_Prefix()
 }
 
 
+void Solver::print()
+{
+
+}
+
+
 bool Solver::solve()
 {   
-    // std::cout << "in solve()" << '\n';
-    // // print_Clauses();
-    // int varID = 1; 
-    // int value = 1;
-    // level = 1;
-    // std::cout << "numClauses: " << data.numClauses << '\n';
-    // assign(varID, value, level);
-    // print_Clauses();
-    // print_Variables();
-
-    // std::cout << data.Variables.at(varID).get_assignment() << '\n';
-    // std::cout << data.Variables.at(varID).get_numNegAppear() << '\n';
-    // std::cout << data.Variables.at(varID).get_numPosAppear() << '\n';
     // std::cout << "numClauses: " << data.numClauses << '\n';
     // std::cout << "state: " << state << '\n';
     // std::cout << "numVars: " << data.numVars << '\n';
 
-    // // print_hashmap(data.Variables.at(varID).get_negativeOccurrences());
-    // // print_hashmap(data.Variables.at(varID).get_positiveOccurrences());
+    level = 1;
+    int varID = 1;
+    int value = 1;
+    
+    // // std::cout << "numClauses: " << data.numClauses << '\n';
+    // std::cout << data.numBlocks << '\n';
+    std::cout << data.numVars << " " << data.numClauses << '\n';
+    // print_hashmap(data.Variables.at(varID).get_negativeOccurrences());
+    assign(varID, value, level);
+    // std::cout << data.numBlocks << '\n';
+    std::cout << data.numVars << " " << data.numClauses << '\n';
+    
+    // // print_Blocks();
 
     // restore_level(level);
-    // std::cout << "numClauses: " << data.numClauses << '\n';
-    // std::cout << "state: " << state << '\n';
-    // std::cout << "numVars: " << data.numVars << '\n';
+    // print_Clauses();
+    // std::cout << data.numBlocks << '\n';
+    // std::cout << data.numVars << " " << data.numClauses << '\n';
 
-    /* "testing" analyze_conflict */
-    analyze_conflict();
+    // std::stack<std::pair<int, int>> cp;
+    // std::cout << "unit clauses:\n";
+    // while(!unit_clauses.empty())
+    // {   
+    //     cp.push(unit_clauses.top());
+    //     unit_clauses.pop();
+    // }
+
+    // while(!cp.empty())
+    // {   
+    //     int unit_clauseID = cp.top().first;
+    //     std::cout << "unit clause " << unit_clauseID << " level " << cp.top().second << '\n';
+    //     int unit_literal_position = data.Clauses.at(cp.top().first).get_unit_position();
+    //     int unit_literal = data.Clauses.at(cp.top().first).get_literals()[unit_literal_position];
+    //     std::cout << "unit literal " << unit_literal << '\n';
+        
+    //     cp.pop();
+    // }
+
+    imply(level);
+
+    // print_Clauses();
+    std::cout << data.numVars << " " << data.numClauses << '\n';
+
+    printStackOfPairsSafe(implied_variables);
+
+    // level++;
+    // varID = 10;
+    // value = 1;
+    // assign(varID, value, level);
+
+    // if (state == qbf::UNSAT)
+    //     restore_level(level);
+
 
     return state;
 }

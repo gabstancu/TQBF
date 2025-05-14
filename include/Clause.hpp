@@ -17,11 +17,13 @@ class Clause
 
         std::vector<int> literals;
         std::vector<int> state;
+        int unique_existential_position;
 
         int e_num; // number of existential literals active
         int a_num; // number of universal literals active
 
         bool learned = false;
+        bool tseitin = false;
 
     public:
         Clause (const std::vector<int>& literals, 
@@ -37,6 +39,8 @@ class Clause
         void set_assigned(int a) { assigned = a; }
         std::vector<int>& get_literals() { return literals; }
         std::vector<int>& get_state() { return state; }
+        void set_unit_position(int position) { unique_existential_position = position; }
+        void set_tseitin(bool ts) { tseitin = ts; }
 
         /* Read only access */
         size_t get_size() const { return size; }
@@ -46,9 +50,11 @@ class Clause
         int get_assigned() const { return assigned; }
         const std::vector<int>& get_literals() const { return literals; }
         const std::vector<int>& get_state() const { return state; }
+        int get_unit_position() const { return unique_existential_position; }
         int get_e_num() const { return e_num; }
         int get_a_num() const { return a_num; }
         bool is_learned() const { return learned; }
+        bool is_tseitin() const { return tseitin; }
 
         /* other */
         // void print(std::vector<int> vec) { printVector(vec); }

@@ -12,6 +12,7 @@ class Variable
     private:
         int varID;
         char quantifier;
+        bool tseitin = false;
 
         /* search information */
         int available;
@@ -27,10 +28,11 @@ class Variable
         int numNegAppear;
         // { clause : position_in_clause }
         std::unordered_map<int, int> negativeOccurrences;
+        std::unordered_map<int, int> negativeTseitinOccurrences;
 
         int numPosAppear;
         std::unordered_map<int, int> positiveOccurrences;
-
+        std::unordered_map<int, int> positiveTseitinOccurrences;
 
     public:
 
@@ -58,6 +60,8 @@ class Variable
             return positiveOccurrences;
         }
 
+        bool is_tseitin() const { return tseitin; }
+
         /* Mutators (during search) */
         void set_varID (int ID) { varID = ID; }
         void set_availability (int status) { available = status; }
@@ -82,6 +86,7 @@ class Variable
         void addOccurrence (int clauseID, int position, bool positive);
         bool appears_in_clause (int clauseID);
         int get_position_in_clause (int clauseID, bool positive);
+        void set_tseitin(bool ts) { tseitin = ts; }
         void print ();
         
        
